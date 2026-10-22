@@ -11,7 +11,7 @@ Não é um MCP que controla o desktop. Só observa configs e processos.
 - Ícone na barra; a lista fica no menu
 - Estado por MCP: em execução (verde), degradado (amarelo), parado (cinza), remoto (azul)
 - Degradado: porta TCP aberta mas handshake MCP falhou, ou unit/processo activo com a porta recusada
-- Ações: reiniciar, parar, iniciar (só daemon HTTP/[systemd](https://systemd.io/)), copiar URL, logs (`journalctl --user`)
+- Ações: reiniciar, parar, iniciar (só daemon HTTP/[systemd](https://systemd.io/)), logs (`journalctl --user`)
 - stdio gerido pelo cliente ([Cursor](https://cursor.com/), [VS Code](https://code.visualstudio.com/), [Claude](https://claude.ai/), [OpenCode](https://opencode.ai/), etc.): a extensão não finge iniciar; o cliente é quem sobe o processo
 - Notificação quando um MCP HTTP/systemd local passa de ok para degradado ou parado
 
@@ -45,8 +45,6 @@ A instalação cria um symlink em `~/.local/share/gnome-shell/extensions/mcp-ind
 - **Wayland:** logout/login e o mesmo `gnome-extensions enable`
 
 [GNOME](https://www.gnome.org/) Shell 46–49.
-
-Os botões de copiar URL e de logs escrevem na área de transferência; nada disso sai do computador.
 
 ## Pacote para [extensions.gnome.org](https://extensions.gnome.org/)
 

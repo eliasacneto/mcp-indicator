@@ -1,7 +1,7 @@
 {
     "uuid": "mcp-indicator@rodriguesfas.github.io",
     "name": "MCP Indicator",
-    "description": "Shows MCP (Model Context Protocol) servers from this computer in the GNOME top bar: running, degraded, stopped or remote. Start, stop and restart apply only to local HTTP or systemd daemons; client-managed stdio is left to the IDE.\n\nCopies an MCP URL or systemd journal logs to the clipboard when you click those buttons. Clipboard contents and process data are never sent to third parties.",
+    "description": "Shows MCP (Model Context Protocol) servers from this computer in the GNOME top bar: running, degraded, stopped or remote. Start, stop and restart apply only to local HTTP or systemd daemons; client-managed stdio is left to the IDE. HTTP URLs and systemd journal lines are shown in the menu. Process data is never sent to third parties.",
     "shell-version": ["46", "47", "48", "49"],
     "url": "https://github.com/rodriguesfas/mcp-indicator",
     "settings-schema": "org.gnome.shell.extensions.mcp-indicator"

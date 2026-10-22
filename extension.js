@@ -371,8 +371,11 @@ class McpIndicator extends PanelMenu.Button {
 
         const sourceText = server.sources.filter(s => s !== 'processo').join(', ')
             || server.transport;
+        const descBits = [sourceText, reason];
+        if (server.url && !String(reason).includes(server.url))
+            descBits.push(server.url);
         const desc = new St.Label({
-            text: `${sourceText} · ${reason}`,
+            text: descBits.join(' · '),
             style_class: 'mcp-indicator-row-desc',
             x_expand: true,
         });
@@ -446,20 +449,6 @@ class McpIndicator extends PanelMenu.Button {
             ));
         }
 
-        if (server.url) {
-            actions.add_child(this._iconButton(
-                'edit-copy-symbolic',
-                _('Copiar URL'),
-                () => {
-                    St.Clipboard.get_default().set_text(
-                        St.ClipboardType.CLIPBOARD,
-                        server.url
-                    );
-                    this._metaItem.label.text = _('URL copiada');
-                }
-            ));
-        }
-
         return actions;
     }
 
@@ -487,12 +476,9 @@ class McpIndicator extends PanelMenu.Button {
             this._logSection.addMenuItem(item);
         }
 
-        if (result.text) {
-            St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, result.text);
-            this._metaItem.label.text = _('logs de %s (copiados)').format(displayName(server.name));
-        } else {
-            this._metaItem.label.text = _('sem logs para %s').format(displayName(server.name));
-        }
+        this._metaItem.label.text = result.text
+            ? _('logs de %s').format(displayName(server.name))
+            : _('sem logs para %s').format(displayName(server.name));
     }
 
     async _rememberArgv(snapshot) {
