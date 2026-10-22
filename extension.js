@@ -109,10 +109,10 @@ class McpIndicator extends PanelMenu.Button {
         for (const id of this._settingsChangedIds || [])
             this._settings.disconnect(id);
         this._settingsChangedIds = [];
-        try {
-            this._cancellable.cancel();
-        } catch {
-            /* ignore */
+        this._cancellable.cancel();
+        if (this._soup) {
+            this._soup.abort();
+            this._soup = null;
         }
         if (this._source) {
             this._source.destroy();
@@ -156,8 +156,8 @@ class McpIndicator extends PanelMenu.Button {
             this._cancellable = new Gio.Cancellable();
             const extra = this._settings.get_strv('extra-config-paths') || [];
             const snapshot = scan(extra);
-            attachUnits(snapshot.servers);
-            attachUnits(snapshot.orphans);
+            await attachUnits(snapshot.servers);
+            await attachUnits(snapshot.orphans);
             await this._probeHttp(snapshot.servers);
             this._snapshot = snapshot;
             this._rememberArgv(snapshot);
@@ -457,9 +457,11 @@ class McpIndicator extends PanelMenu.Button {
         return actions;
     }
 
-    _showLogs(server) {
+    async _showLogs(server) {
         this._logSection.removeAll();
-        const result = fetchLogs(server);
+        this._metaItem.label.text = _('A ler logs de %s…').format(displayName(server.name));
+        const result = await fetchLogs(server);
+        this._logSection.removeAll();
         const title = new PopupMenu.PopupMenuItem(
             _('Logs · %s').format(displayName(server.name)),
             {reactive: false}

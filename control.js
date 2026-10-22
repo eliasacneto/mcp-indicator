@@ -120,35 +120,61 @@ export function unitForServer(server, units) {
     return null;
 }
 
-export function isUnitActive(unit) {
-    if (!unit)
-        return false;
-    try {
-        const [ok, stdout] = GLib.spawn_sync(
-            null,
-            ['systemctl', '--user', 'is-active', unit],
-            null,
-            GLib.SpawnFlags.SEARCH_PATH,
-            null
-        );
-        const text = new TextDecoder('utf-8').decode(stdout).trim();
-        return Boolean(ok) && text === 'active';
-    } catch {
-        return false;
-    }
+function spawnCommand(argv, envExtra = null) {
+    return new Promise(resolve => {
+        try {
+            const launcher = new Gio.SubprocessLauncher({
+                flags: Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE,
+            });
+            if (envExtra) {
+                for (const [key, value] of Object.entries(envExtra))
+                    launcher.setenv(key, value, true);
+            }
+            const proc = launcher.spawnv(argv);
+            proc.communicate_utf8_async(null, null, (p, res) => {
+                try {
+                    const [, stdout, stderr] = p.communicate_utf8_finish(res);
+                    resolve({
+                        ok: p.get_exit_status() === 0,
+                        stdout: stdout || '',
+                        stderr: stderr || '',
+                    });
+                } catch (error) {
+                    resolve({ok: false, stdout: '', stderr: error.message});
+                }
+            });
+        } catch (error) {
+            resolve({ok: false, stdout: '', stderr: error.message});
+        }
+    });
 }
 
-export function attachUnits(servers) {
+export async function isUnitActive(unit) {
+    if (!unit)
+        return false;
+    const result = await spawnCommand(['systemctl', '--user', 'is-active', unit]);
+    return result.ok && result.stdout.trim() === 'active';
+}
+
+export async function attachUnits(servers) {
     const units = loadUserServiceUnits();
+    const jobs = [];
     for (const server of servers) {
         server.unit = unitForServer(server, units);
-        server.unitActive = server.unit ? isUnitActive(server.unit) : false;
+        server.unitActive = false;
         if (server.unit && !configArgv(server)) {
             const match = units.find(u => u.name === server.unit);
             if (match?.execStart)
                 server.unitArgv = match.execStart.split(/\s+/).filter(Boolean);
         }
+        if (server.unit) {
+            jobs.push(isUnitActive(server.unit).then(active => {
+                server.unitActive = active;
+            }));
+        }
     }
+    if (jobs.length)
+        await Promise.all(jobs);
 }
 
 export function readArgv(pid) {
@@ -208,6 +234,7 @@ function signalPids(pids, signal) {
         if (!Number.isInteger(pid) || pid <= 1)
             continue;
         try {
+            // Only PIDs already matched to this MCP row.
             Gio.Subprocess.new(
                 ['kill', `-${signal}`, String(pid)],
                 Gio.SubprocessFlags.NONE
@@ -218,27 +245,10 @@ function signalPids(pids, signal) {
     }
 }
 
-export function systemctlUser(action, unit) {
-    return new Promise(resolve => {
-        try {
-            const proc = Gio.Subprocess.new(
-                ['systemctl', '--user', action, unit],
-                Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE
-            );
-            proc.communicate_utf8_async(null, null, (p, res) => {
-                try {
-                    const [, stdout, stderr] = p.communicate_utf8_finish(res);
-                    const ok = p.get_exit_status() === 0;
-                    const err = `${stderr || ''}${stdout || ''}`.trim();
-                    resolve({ok, error: ok ? '' : (err || `systemctl ${action} ${unit}`)});
-                } catch (error) {
-                    resolve({ok: false, error: error.message});
-                }
-            });
-        } catch (error) {
-            resolve({ok: false, error: error.message});
-        }
-    });
+export async function systemctlUser(action, unit) {
+    const result = await spawnCommand(['systemctl', '--user', action, unit]);
+    const err = `${result.stderr}${result.stdout}`.trim();
+    return {ok: result.ok, error: result.ok ? '' : (err || `systemctl ${action} ${unit}`)};
 }
 
 export async function stopServer(server) {
@@ -276,19 +286,46 @@ function isContainerArgv(argv) {
     return base === 'docker' || base === 'podman';
 }
 
+function extraBinDirs() {
+    const home = GLib.get_home_dir();
+    const dirs = [`${home}/.local/bin`, '/usr/local/bin'];
+    const nvmRoot = Gio.File.new_for_path(`${home}/.nvm/versions/node`);
+    try {
+        const enumerator = nvmRoot.enumerate_children(
+            'standard::name,standard::type',
+            Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS,
+            null
+        );
+        const versions = [];
+        let info;
+        while ((info = enumerator.next_file(null)) !== null) {
+            if (info.get_file_type() === Gio.FileType.DIRECTORY)
+                versions.push(info.get_name());
+        }
+        enumerator.close(null);
+        versions.sort((a, b) => b.localeCompare(a, undefined, {numeric: true}));
+        for (const version of versions)
+            dirs.push(`${home}/.nvm/versions/node/${version}/bin`);
+    } catch {
+        /* nvm ausente */
+    }
+    return dirs;
+}
+
+function userPath() {
+    return [...extraBinDirs(), GLib.getenv('PATH') || '/usr/bin:/bin'].join(':');
+}
+
 function resolveCommand(command) {
     if (!command)
         return command;
     if (command.includes('/'))
         return command;
-    const home = GLib.get_home_dir();
-    const candidates = [
-        `${home}/.nvm/versions/node/v22.21.1/bin/${command}`,
-        `${home}/.local/bin/${command}`,
-        `/usr/local/bin/${command}`,
-        `/usr/bin/${command}`,
-    ];
-    for (const path of candidates) {
+    const found = GLib.find_program_in_path(command);
+    if (found)
+        return found;
+    for (const dir of extraBinDirs()) {
+        const path = `${dir}/${command}`;
         if (Gio.File.new_for_path(path).query_exists(null))
             return path;
     }
@@ -318,12 +355,7 @@ export function spawnArgv(argv, {keepStdin = false} = {}) {
             : Gio.SubprocessFlags.STDIN_INHERIT;
         const launcher = new Gio.SubprocessLauncher({flags});
         const home = GLib.get_home_dir();
-        const path = [
-            `${home}/.local/bin`,
-            `${home}/.nvm/versions/node/v22.21.1/bin`,
-            GLib.getenv('PATH') || '/usr/bin:/bin',
-        ].join(':');
-        launcher.setenv('PATH', path, true);
+        launcher.setenv('PATH', userPath(), true);
         launcher.setenv('HOME', home, false);
         const proc = launcher.spawnv(resolved);
         if (keepStdin)
@@ -368,34 +400,22 @@ export async function restartServer(server, argv) {
     return stopServer(server);
 }
 
-export function fetchLogs(server, lines = 25) {
+export async function fetchLogs(server, lines = 25) {
     if (!server.unit)
         return {ok: false, lines: [], text: 'sem journal (não é unit systemd)'};
-    try {
-        const env = [
-            ...(GLib.get_environ() || []),
-            'SYSTEMD_COLORS=0',
-            'SYSTEMD_URLIFY=0',
-        ];
-        const [ok, stdout, stderr] = GLib.spawn_sync(
-            null,
-            ['journalctl', '--user', '-u', server.unit, '-n', String(lines), '--no-pager', '-o', 'cat'],
-            env,
-            GLib.SpawnFlags.SEARCH_PATH,
-            null
-        );
-        const raw = new TextDecoder('utf-8').decode(ok ? stdout : stderr)
-            .replace(/\x1b\[[0-9;]*m/g, '')
-            .trim();
-        const logLines = raw ? raw.split('\n').filter(Boolean).slice(-lines) : [];
-        return {
-            ok: Boolean(ok && logLines.length),
-            lines: logLines,
-            text: raw,
-        };
-    } catch (error) {
-        return {ok: false, lines: [], text: error.message};
-    }
+    const result = await spawnCommand(
+        ['journalctl', '--user', '-u', server.unit, '-n', String(lines), '--no-pager', '-o', 'cat'],
+        {SYSTEMD_COLORS: '0', SYSTEMD_URLIFY: '0'}
+    );
+    const raw = (result.ok ? result.stdout : result.stderr)
+        .replace(/\x1b\[[0-9;]*m/g, '')
+        .trim();
+    const logLines = raw ? raw.split('\n').filter(Boolean).slice(-lines) : [];
+    return {
+        ok: Boolean(result.ok && logLines.length),
+        lines: logLines,
+        text: raw,
+    };
 }
 
 export function probeTcp(host, port, cancellable = null) {

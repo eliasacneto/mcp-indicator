@@ -44,11 +44,26 @@ A instalação cria um symlink em `~/.local/share/gnome-shell/extensions/mcp-ind
 - **X11:** Alt+F2, `r`, Enter, depois `gnome-extensions enable mcp-indicator@rodriguesfas.github.io`
 - **Wayland:** logout/login e o mesmo `gnome-extensions enable`
 
-[GNOME](https://www.gnome.org/) Shell 45–49.
+[GNOME](https://www.gnome.org/) Shell 46–49.
+
+Os botões de copiar URL e de logs escrevem na área de transferência; nada disso sai do computador.
+
+## Pacote para [extensions.gnome.org](https://extensions.gnome.org/)
+
+```bash
+gnome-extensions pack -f \
+  --extra-source=detector.js \
+  --extra-source=health.js \
+  --extra-source=control.js \
+  --extra-source=LICENSE \
+  --extra-source=COPYING
+```
+
+O ZIP não inclui `install.sh`, screenshot nem o git. O screenshot sobe no formulário de [upload](https://extensions.gnome.org/upload/).
 
 ## Licença
 
-[GPL-2.0](LICENSE) (GNU General Public License, versão 2).
+[GPL-2.0-or-later](COPYING) (GNU General Public License, versão 2 ou posterior).
 
 ## Limites
 
