@@ -38,7 +38,7 @@ cd macos
 ./build.sh --dmg      # gera build/MCP-Indicator-<versão>-arm64.dmg para distribuir
 ```
 
-O `.dmg` traz a app e um atalho para Aplicações: basta arrastar uma para a outra.
+O `.dmg` abre numa janela própria (fundo de `scripts/make-dmg-background.swift`, ícones de 128 pt, seta da app para Aplicações e ícone do volume): basta arrastar uma para a outra. O layout é aplicado pelo Finder via AppleScript; na primeira vez o macOS pede permissão de Automação para o Terminal controlar o Finder. Sem ela o `.dmg` é gerado na mesma, só que sem a janela personalizada.
 
 Como a assinatura é ad-hoc (sem Developer ID nem notarização), num Mac que baixou o `.dmg` o Gatekeeper bloqueia a primeira abertura: clique direito na app → *Abrir*, ou Ajustes do Sistema → Privacidade e Segurança → *Abrir mesmo assim*.
 
