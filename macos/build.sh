@@ -2,6 +2,7 @@
 # Compila o MCP Indicator para Apple Silicon e monta "build/MCP Indicator.app".
 #   ./build.sh            só compila e empacota
 #   ./build.sh --install  copia para ~/Applications e abre
+#   ./build.sh --dmg      gera também build/MCP-Indicator-<versão>-arm64.dmg
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -38,7 +39,20 @@ cp "$ICNS" "$APP/Contents/Resources/AppIcon.icns"
 echo "→ assinatura ad-hoc"
 codesign --force --sign - --timestamp=none "$APP"
 
-if [ "${1:-}" = "--install" ]; then
+if [ "${1:-}" = "--dmg" ]; then
+    VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)"
+    DMG="build/MCP-Indicator-$VERSION-arm64.dmg"
+    STAGING="build/dmg"
+    echo "→ a montar $DMG"
+    rm -rf "$STAGING" "$DMG"
+    mkdir -p "$STAGING"
+    cp -R "$APP" "$STAGING/"
+    # Atalho para arrastar a app para Aplicações.
+    ln -s /Applications "$STAGING/Applications"
+    hdiutil create -quiet -volname "$APP_NAME" -srcfolder "$STAGING" -fs HFS+ -format UDZO -ov "$DMG"
+    rm -rf "$STAGING"
+    echo "✓ $DMG"
+elif [ "${1:-}" = "--install" ]; then
     DEST="$HOME/Applications"
     mkdir -p "$DEST"
     pkill -x "$EXECUTABLE" 2>/dev/null || true

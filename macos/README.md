@@ -35,9 +35,12 @@ Precisa de macOS 13+ e das Command Line Tools (`xcode-select --install`). O Xcod
 cd macos
 ./build.sh            # gera build/MCP Indicator.app (arm64, assinatura ad-hoc)
 ./build.sh --install  # copia para ~/Applications e abre
+./build.sh --dmg      # gera build/MCP-Indicator-<versão>-arm64.dmg para distribuir
 ```
 
-Como a assinatura é ad-hoc, na primeira abertura fora do build o Gatekeeper pode pedir *Abrir* pelo menu de contexto no Finder.
+O `.dmg` traz a app e um atalho para Aplicações: basta arrastar uma para a outra.
+
+Como a assinatura é ad-hoc (sem Developer ID nem notarização), num Mac que baixou o `.dmg` o Gatekeeper bloqueia a primeira abertura: clique direito na app → *Abrir*, ou Ajustes do Sistema → Privacidade e Segurança → *Abrir mesmo assim*.
 
 Para abrir ao iniciar sessão: Preferências → *Abrir ao iniciar sessão* (usa `SMAppService`).
 
