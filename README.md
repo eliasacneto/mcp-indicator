@@ -15,6 +15,10 @@ Não é um MCP que controla o desktop. Só observa configs e processos.
 - stdio gerido pelo cliente ([Cursor](https://cursor.com/), [VS Code](https://code.visualstudio.com/), [Claude](https://claude.ai/), [OpenCode](https://opencode.ai/), etc.): a extensão não finge iniciar; o cliente é quem sobe o processo
 - Notificação quando um MCP HTTP/systemd local passa de ok para degradado ou parado
 
+## macOS
+
+Há uma versão nativa para a barra de menus do macOS (Apple Silicon) em [`macos/`](macos/README.md), com a mesma detecção e LaunchAgents no lugar do systemd.
+
 ## Como detecta
 
 1. Lê JSON de config no home (`mcpServers`, `servers` ou `mcp`):
