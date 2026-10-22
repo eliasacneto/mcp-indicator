@@ -1,0 +1,10 @@
+{
+    "uuid": "mcp-indicator@rodriguesfas.github.io",
+    "name": "MCP Indicator",
+    "description": "Indicador na barra superior com os servidores MCP (Model Context Protocol) configurados e em execução neste computador.",
+    "shell-version": ["45", "46", "47", "48", "49"],
+    "session-modes": ["user"],
+    "version": 4,
+    "url": "https://github.com/rodriguesfas/mcp-indicator",
+    "settings-schema": "org.gnome.shell.extensions.mcp-indicator"
+}

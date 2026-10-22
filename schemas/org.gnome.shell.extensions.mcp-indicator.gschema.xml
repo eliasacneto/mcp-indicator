@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="mcp-indicator@rodriguesfas.github.io">
+  <schema id="org.gnome.shell.extensions.mcp-indicator"
+          path="/org/gnome/shell/extensions/mcp-indicator/">
+
+    <key name="refresh-interval" type="i">
+      <default>5</default>
+      <range min="3" max="60"/>
+      <summary>Intervalo de atualização (segundos)</summary>
+      <description>Tempo entre cada varredura de arquivos de config e processos.</description>
+    </key>
+
+    <key name="show-stopped" type="b">
+      <default>true</default>
+      <summary>Mostrar MCP parados</summary>
+      <description>Listar servidores presentes na configuração que não estão em execução.</description>
+    </key>
+
+    <key name="show-orphans" type="b">
+      <default>true</default>
+      <summary>Mostrar processos órfãos</summary>
+      <description>Listar processos que parecem MCP mas não estão nos arquivos de configuração.</description>
+    </key>
+
+    <key name="probe-remote" type="b">
+      <default>false</default>
+      <summary>Sondar HTTP remoto</summary>
+      <description>Testar também URLs que não são localhost. Desligado por omissão.</description>
+    </key>
+
+    <key name="enable-notifications" type="b">
+      <default>true</default>
+      <summary>Notificar queda de MCP local</summary>
+      <description>Avisar quando um MCP HTTP/systemd local passa de ok para degradado ou parado. stdio do cliente e remotos não notificam.</description>
+    </key>
+
+    <key name="extra-config-paths" type="as">
+      <default>[]</default>
+      <summary>Arquivos de configuração extra</summary>
+      <description>Caminhos adicionais de JSON com mcpServers / servers / mcp.</description>
+    </key>
+  </schema>
+</schemalist>

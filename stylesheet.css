@@ -1,0 +1,93 @@
+.mcp-indicator-icon {
+  padding: 0 8px;
+}
+
+.mcp-indicator-icon StIcon {
+  icon-size: 16px;
+}
+
+.mcp-indicator-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  margin: 0 4px;
+}
+
+.mcp-indicator-dot-running {
+  background-color: #2ecc71;
+}
+
+.mcp-indicator-dot-partial {
+  background-color: #f1c40f;
+}
+
+.mcp-indicator-dot-stopped {
+  background-color: #95a5a6;
+}
+
+.mcp-indicator-dot-remote {
+  background-color: #3498db;
+}
+
+.mcp-indicator-dot-unknown {
+  background-color: #7f8c8d;
+}
+
+.mcp-indicator-header {
+  font-weight: bold;
+  padding: 8px 12px 4px;
+}
+
+.mcp-indicator-meta {
+  font-size: 0.85em;
+  opacity: 0.75;
+  padding: 0 12px 8px;
+}
+
+.mcp-indicator-row {
+  padding: 6px 12px;
+  spacing: 10px;
+}
+
+.mcp-indicator-actions {
+  spacing: 2px;
+  padding-left: 8px;
+}
+
+.mcp-indicator-action {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  padding: 2px;
+}
+
+.mcp-indicator-action:hover,
+.mcp-indicator-action:focus {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+.mcp-indicator-action StIcon {
+  icon-size: 16px;
+}
+
+.mcp-indicator-row-name {
+  font-weight: 600;
+}
+
+.mcp-indicator-row-desc {
+  font-size: 0.85em;
+  opacity: 0.8;
+}
+
+.mcp-indicator-error {
+  font-size: 0.85em;
+  opacity: 0.8;
+  padding: 6px 12px;
+}
+
+.mcp-indicator-log {
+  font-size: 0.78em;
+  font-family: monospace;
+  opacity: 0.85;
+  padding: 2px 12px;
+}
