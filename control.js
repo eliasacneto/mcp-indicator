@@ -1,7 +1,7 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
-import {basename, displayName} from './detector.js';
+import {basename, displayName, loadBytes, readTextFile} from './detector.js';
 
 const heldProcs = [];
 
@@ -29,19 +29,7 @@ export function releaseHeld() {
     heldProcs.length = 0;
 }
 
-function readTextFile(path) {
-    try {
-        const file = Gio.File.new_for_path(path);
-        if (!file.query_exists(null))
-            return null;
-        const [, bytes] = file.load_contents(null);
-        return new TextDecoder('utf-8').decode(bytes);
-    } catch {
-        return null;
-    }
-}
-
-export function loadUserServiceUnits() {
+export async function loadUserServiceUnits() {
     const dir = GLib.build_filenamev([GLib.get_user_config_dir(), 'systemd', 'user']);
     const units = [];
     let enumerator;
@@ -60,7 +48,7 @@ export function loadUserServiceUnits() {
         const name = info.get_name();
         if (!name.endsWith('.service'))
             continue;
-        const text = readTextFile(GLib.build_filenamev([dir, name]));
+        const text = await readTextFile(GLib.build_filenamev([dir, name]));
         if (!text)
             continue;
         const joined = text.replace(/\\\n/g, ' ');
@@ -157,7 +145,7 @@ export async function isUnitActive(unit) {
 }
 
 export async function attachUnits(servers) {
-    const units = loadUserServiceUnits();
+    const units = await loadUserServiceUnits();
     const jobs = [];
     for (const server of servers) {
         server.unit = unitForServer(server, units);
@@ -177,16 +165,14 @@ export async function attachUnits(servers) {
         await Promise.all(jobs);
 }
 
-export function readArgv(pid) {
+export async function readArgv(pid) {
     if (!Number.isInteger(pid) || pid <= 1)
         return null;
-    try {
-        const [, bytes] = Gio.File.new_for_path(`/proc/${pid}/cmdline`).load_contents(null);
-        const parts = new TextDecoder('utf-8').decode(bytes).split('\0').filter(Boolean);
-        return parts.length ? parts : null;
-    } catch {
+    const bytes = await loadBytes(`/proc/${pid}/cmdline`);
+    if (!bytes)
         return null;
-    }
+    const parts = new TextDecoder('utf-8').decode(bytes).split('\0').filter(Boolean);
+    return parts.length ? parts : null;
 }
 
 export function pidAlive(pid) {
@@ -195,17 +181,17 @@ export function pidAlive(pid) {
     return Gio.File.new_for_path(`/proc/${pid}`).query_exists(null);
 }
 
-function cmdlineOf(pid) {
-    const argv = readArgv(pid);
+async function cmdlineOf(pid) {
+    const argv = await readArgv(pid);
     return argv ? argv.join(' ') : '';
 }
 
-export function pidsStillOurs(pids, server) {
+export async function pidsStillOurs(pids, server) {
     const out = [];
     for (const pid of pids || []) {
         if (!pidAlive(pid))
             continue;
-        const cmd = cmdlineOf(pid);
+        const cmd = await cmdlineOf(pid);
         if (!cmd)
             continue;
         const command = server.command || '';
@@ -255,12 +241,12 @@ export async function stopServer(server) {
     if (server.unit)
         return systemctlUser('stop', server.unit);
 
-    const first = pidsStillOurs(server.pids || [], server);
+    const first = await pidsStillOurs(server.pids || [], server);
     if (first.length === 0)
         return {ok: true, error: ''};
     signalPids(first, 'TERM');
     await delay(700);
-    const leftover = pidsStillOurs(first, server);
+    const leftover = await pidsStillOurs(first, server);
     if (leftover.length)
         signalPids(leftover, 'KILL');
     return {ok: true, error: ''};
@@ -272,9 +258,9 @@ export function configArgv(server) {
     return null;
 }
 
-export function liveArgv(server) {
+export async function liveArgv(server) {
     for (const pid of server.pids || []) {
-        const argv = readArgv(pid);
+        const argv = await readArgv(pid);
         if (argv && argv.length)
             return argv;
     }

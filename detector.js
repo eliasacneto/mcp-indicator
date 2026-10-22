@@ -102,16 +102,25 @@ export function parseHttpUrl(url) {
     return {scheme, host, port, path, local, href: url};
 }
 
-function readTextFile(path) {
-    try {
+export function loadBytes(path, cancellable = null) {
+    return new Promise(resolve => {
         const file = Gio.File.new_for_path(path);
-        if (!file.query_exists(null))
-            return null;
-        const [, bytes] = file.load_contents(null);
-        return new TextDecoder('utf-8').decode(bytes);
-    } catch {
+        file.load_contents_async(cancellable, (src, res) => {
+            try {
+                const [, bytes] = src.load_contents_finish(res);
+                resolve(bytes && bytes.length ? bytes : null);
+            } catch {
+                resolve(null);
+            }
+        });
+    });
+}
+
+export async function readTextFile(path, cancellable = null) {
+    const bytes = await loadBytes(path, cancellable);
+    if (!bytes)
         return null;
-    }
+    return new TextDecoder('utf-8').decode(bytes);
 }
 
 function normalizeServer(name, cfg, source) {
@@ -223,7 +232,7 @@ function mergeServers(list) {
     return [...map.values()];
 }
 
-export function loadConfiguredServers(extraPaths = []) {
+export async function loadConfiguredServers(extraPaths = []) {
     const home = GLib.get_home_dir();
     const specs = DEFAULT_CONFIGS.map(item => ({
         path: GLib.build_filenamev([home, item.rel]),
@@ -238,13 +247,19 @@ export function loadConfiguredServers(extraPaths = []) {
     const found = [];
     const errors = [];
     const seen = new Set();
+    const unique = [];
     for (const spec of specs) {
         if (seen.has(spec.path))
             continue;
         seen.add(spec.path);
-        const text = readTextFile(spec.path);
+        unique.push(spec);
+    }
+    const texts = await Promise.all(unique.map(spec => readTextFile(spec.path)));
+    for (let i = 0; i < unique.length; i++) {
+        const text = texts[i];
         if (text === null)
             continue;
+        const spec = unique[i];
         const data = parseJsonLoose(text);
         if (!data) {
             errors.push(`${spec.source}: JSON inválido em ${spec.path}`);
@@ -255,8 +270,8 @@ export function loadConfiguredServers(extraPaths = []) {
     return {servers: mergeServers(found), errors};
 }
 
-export function listUserProcesses() {
-    const out = [];
+export async function listUserProcesses() {
+    const names = [];
     let enumerator;
     try {
         enumerator = Gio.File.new_for_path('/proc').enumerate_children(
@@ -265,40 +280,33 @@ export function listUserProcesses() {
             null
         );
     } catch {
-        return out;
+        return [];
     }
 
     let info;
     while ((info = enumerator.next_file(null)) !== null) {
         const name = info.get_name();
-        if (!/^\d+$/.test(name))
-            continue;
-        try {
-            const cmdFile = Gio.File.new_for_path(`/proc/${name}/cmdline`);
-            const [, bytes] = cmdFile.load_contents(null);
-            if (!bytes || bytes.length === 0)
-                continue;
-            const cmdline = new TextDecoder('utf-8').decode(bytes).replace(/\0/g, ' ').trim();
-            if (!cmdline)
-                continue;
-            let comm = '';
-            try {
-                const [, cbytes] = Gio.File.new_for_path(`/proc/${name}/comm`).load_contents(null);
-                comm = new TextDecoder('utf-8').decode(cbytes).trim();
-            } catch {
-                comm = '';
-            }
-            out.push({pid: Number(name), cmdline, comm});
-        } catch {
-            continue;
-        }
+        if (/^\d+$/.test(name))
+            names.push(name);
     }
     try {
         enumerator.close(null);
     } catch {
         /* ignore */
     }
-    return out;
+
+    const jobs = names.map(async name => {
+        const bytes = await loadBytes(`/proc/${name}/cmdline`);
+        if (!bytes)
+            return null;
+        const cmdline = new TextDecoder('utf-8').decode(bytes).replace(/\0/g, ' ').trim();
+        if (!cmdline)
+            return null;
+        const cbytes = await loadBytes(`/proc/${name}/comm`);
+        const comm = cbytes ? new TextDecoder('utf-8').decode(cbytes).trim() : '';
+        return {pid: Number(name), cmdline, comm};
+    });
+    return (await Promise.all(jobs)).filter(Boolean);
 }
 
 function escapeRe(value) {
@@ -409,9 +417,11 @@ export function groupOrphans(processes) {
     return [...map.values()];
 }
 
-export function scan(extraPaths = []) {
-    const {servers, errors} = loadConfiguredServers(extraPaths);
-    const processes = listUserProcesses();
+export async function scan(extraPaths = []) {
+    const [{servers, errors}, processes] = await Promise.all([
+        loadConfiguredServers(extraPaths),
+        listUserProcesses(),
+    ]);
     const used = new Set();
 
     for (const server of servers) {

@@ -2,3 +2,4 @@ ORIGEM.txt
 *~
 *.bak
 *.shell-extension.zip
+venv/

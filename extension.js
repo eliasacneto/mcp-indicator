@@ -43,6 +43,7 @@ class McpIndicator extends PanelMenu.Button {
         this._actionInFlight = false;
         this._soup = newSoupSession();
         this._source = null;
+        this._sourceDestroyId = 0;
 
         this.style_class = `${this.style_class} mcp-indicator-icon`;
 
@@ -114,6 +115,10 @@ class McpIndicator extends PanelMenu.Button {
             this._soup.abort();
             this._soup = null;
         }
+        if (this._sourceDestroyId && this._source) {
+            this._source.disconnect(this._sourceDestroyId);
+            this._sourceDestroyId = 0;
+        }
         if (this._source) {
             this._source.destroy();
             this._source = null;
@@ -155,12 +160,12 @@ class McpIndicator extends PanelMenu.Button {
             this._cancellable.cancel();
             this._cancellable = new Gio.Cancellable();
             const extra = this._settings.get_strv('extra-config-paths') || [];
-            const snapshot = scan(extra);
+            const snapshot = await scan(extra);
             await attachUnits(snapshot.servers);
             await attachUnits(snapshot.orphans);
             await this._probeHttp(snapshot.servers);
             this._snapshot = snapshot;
-            this._rememberArgv(snapshot);
+            await this._rememberArgv(snapshot);
             this._trackHealth(snapshot);
             this._renderMenu();
         } catch (error) {
@@ -225,7 +230,8 @@ class McpIndicator extends PanelMenu.Button {
             title: _('MCP Indicator'),
             iconName: 'network-server-symbolic',
         });
-        this._source.connect('destroy', () => {
+        this._sourceDestroyId = this._source.connect('destroy', () => {
+            this._sourceDestroyId = 0;
             this._source = null;
         });
         Main.messageTray.add(this._source);
@@ -489,16 +495,16 @@ class McpIndicator extends PanelMenu.Button {
         }
     }
 
-    _rememberArgv(snapshot) {
+    async _rememberArgv(snapshot) {
         for (const server of [...snapshot.servers, ...snapshot.orphans]) {
-            const argv = liveArgv(server);
+            const argv = await liveArgv(server);
             if (argv)
                 this._savedArgv.set(server.id, argv);
         }
     }
 
-    _argvFor(server) {
-        return this._savedArgv.get(server.id) || configArgv(server) || liveArgv(server);
+    async _argvFor(server) {
+        return this._savedArgv.get(server.id) || configArgv(server) || await liveArgv(server);
     }
 
     async _afterAction(result, verb, server) {
@@ -549,7 +555,7 @@ class McpIndicator extends PanelMenu.Button {
         this._metaItem.label.text = _('A iniciar %s…').format(displayName(server.name));
         let result = {ok: true, error: ''};
         try {
-            result = await startServer(server, this._argvFor(server));
+            result = await startServer(server, await this._argvFor(server));
         } catch (error) {
             console.error(`[MCP Indicator] start failed: ${error}`);
             result = {ok: false, error: error.message};
@@ -564,7 +570,7 @@ class McpIndicator extends PanelMenu.Button {
         this._metaItem.label.text = _('A reiniciar %s…').format(displayName(server.name));
         let result = {ok: true, error: ''};
         try {
-            result = await restartServer(server, this._argvFor(server));
+            result = await restartServer(server, await this._argvFor(server));
         } catch (error) {
             console.error(`[MCP Indicator] restart failed: ${error}`);
             result = {ok: false, error: error.message};

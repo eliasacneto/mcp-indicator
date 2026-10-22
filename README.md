@@ -51,15 +51,20 @@ Os botões de copiar URL e de logs escrevem na área de transferência; nada dis
 ## Pacote para [extensions.gnome.org](https://extensions.gnome.org/)
 
 ```bash
-gnome-extensions pack -f \
-  --extra-source=detector.js \
-  --extra-source=health.js \
-  --extra-source=control.js \
-  --extra-source=LICENSE \
-  --extra-source=COPYING
+make shexli
 ```
 
-O ZIP não inclui `install.sh`, screenshot nem o git. O screenshot sobe no formulário de [upload](https://extensions.gnome.org/upload/).
+Isto empacota o zip e corre o [Shexli](https://pypi.org/project/shexli/) (o analisador estático do EGO). Equivale a:
+
+```bash
+python3 -m venv venv
+. venv/bin/activate
+pip install -U -r requirements-shexli.txt
+make pack
+shexli mcp-indicator@rodriguesfas.github.io.shell-extension.zip
+```
+
+O ZIP não inclui `install.sh`, screenshot, Makefile nem o git. O screenshot sobe no formulário de [upload](https://extensions.gnome.org/upload/). O CI do GitHub corre o mesmo `make shexli`.
 
 ## Licença
 
